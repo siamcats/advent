@@ -6,3 +6,11 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Deploy Previewsの設定（PRごとのプレビュー環境）
+[context.deploy-preview]
+  command = "npm run build"
+
+# Branch Deploysの設定（ブランチごとのデプロイ）
+[context.branch-deploy]
+  command = "npm run build"
