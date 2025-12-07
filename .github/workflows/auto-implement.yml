@@ -1,0 +1,166 @@
+name: Auto Implementation with GitHub Copilot
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  auto-implement:
+    # 'auto-implement' ラベルが付いた Issue のみ実行
+    if: contains(github.event.issue.labels.*.name, 'auto-implement')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Create feature branch
+        id: create-branch
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          BRANCH_NAME="feature/issue-${ISSUE_NUMBER}"
+          git checkout -b $BRANCH_NAME
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+      
+      - name: Trigger Copilot Workspace (Placeholder)
+        id: copilot-workspace
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          echo "Issue #$ISSUE_NUMBER: $ISSUE_TITLE" > implementation_log.txt
+          echo "---" >> implementation_log.txt
+          echo "$ISSUE_BODY" >> implementation_log.txt
+          echo "" >> implementation_log.txt
+          echo "⚠️ GitHub Copilot Workspace統合は手動トリガーが必要です" >> implementation_log.txt
+          echo "このPRをCopilot Workspaceで開いて実装を完了させてください" >> implementation_log.txt
+          
+          # 空のコミットを作成してブランチを作成
+          git commit --allow-empty -m "chore: setup branch for issue #$ISSUE_NUMBER"
+      
+      - name: Push branch
+        run: |
+          git push origin ${{ steps.create-branch.outputs.branch_name }}
+      
+      - name: Create Pull Request
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LOG_CONTENT=$(cat implementation_log.txt)
+          
+          PR_URL=$(gh pr create \
+            --title "🤖 Auto: ${{ github.event.issue.title }}" \
+            --body "Closes #${{ github.event.issue.number }}
+
+          ## 📋 Issue内容
+          ${{ github.event.issue.body }}
+
+          ---
+
+          ## 🚀 次のステップ
+          1. このPRを[GitHub Copilot Workspace](https://githubnext.com/projects/copilot-workspace)で開く
+          2. Issue内容に基づいてCopilotに実装を依頼
+          3. 生成されたコードをレビュー
+          4. 問題なければマージ
+
+          または、ローカルでこのブランチをチェックアウトして手動実装:
+          \`\`\`bash
+          git fetch origin
+          git checkout ${{ steps.create-branch.outputs.branch_name }}
+          # 実装作業
+          git push
+          \`\`\`
+
+          ---
+          _このPRはGitHub Actionsにより自動生成されました_" \
+            --base main \
+            --head ${{ steps.create-branch.outputs.branch_name }})
+          
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "$PR_URL" > pr_url.txt
+      
+      - name: Add labels to PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ steps.create-pr.outputs.pr_url }} --add-label "auto-generated"
+      
+      - name: Comment on Issue with instructions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prUrl = require('fs').readFileSync('pr_url.txt', 'utf8').trim();
+            const prNumber = prUrl.split('/').pop();
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🤖 **自動実装プロセスを開始しました！**
+
+            ## 📝 作成されたPR
+            ${prUrl}
+
+            ## 🚀 実装方法
+
+            ### オプション1: GitHub Copilot Workspace（推奨）
+            1. 上記PRを[Copilot Workspace](https://githubnext.com/projects/copilot-workspace)で開く
+            2. このIssueの内容をCopilotに伝えて実装を依頼
+            3. 生成されたコードをレビュー＆コミット
+
+            ### オプション2: ローカル開発
+            \`\`\`bash
+            git fetch origin
+            git checkout ${{ steps.create-branch.outputs.branch_name }}
+            # 実装作業を行う
+            git add .
+            git commit -m "Implement: ${{ github.event.issue.title }}"
+            git push
+            \`\`\`
+
+            ### オプション3: GitHub Copilot Chat（VS Code）
+            1. VS Codeでブランチをチェックアウト
+            2. Copilot Chatで「@workspace このIssueの内容を実装して: ${{ github.event.issue.title }}」
+            3. 提案されたコードを確認してコミット
+
+            ---
+            💡 実装完了後、PRをレビューしてマージしてください！`
+            });
+      
+      - name: Update Issue with workflow link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: [...context.payload.issue.labels.map(l => l.name), 'in-progress']
+            });
