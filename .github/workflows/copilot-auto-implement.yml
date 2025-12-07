@@ -1,0 +1,148 @@
+name: Copilot Auto Implementation
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  auto-implement:
+    # 特定のラベルが付いた Issue のみ実行
+    if: contains(github.event.issue.labels.*.name, 'auto-implement')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Create feature branch
+        id: create-branch
+        run: |
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          BRANCH_NAME="feature/issue-${ISSUE_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b $BRANCH_NAME
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+      
+      - name: GitHub Copilot Implementation
+        id: copilot-impl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          # Issue の内容を解析して実装
+          # ここでは簡単な例として、記事追加のパターンを実装
+          
+          # Issue本文から記事情報を抽出（例: "日付: 12/8\nタイトル: xxx\nURL: https://..."）
+          echo "Processing issue: $ISSUE_TITLE"
+          echo "$ISSUE_BODY" > issue_content.txt
+          
+          # 実装スクリプトを実行（Node.jsスクリプトで記事を追加）
+          node << 'EOF'
+          const fs = require('fs');
+          const issueContent = fs.readFileSync('issue_content.txt', 'utf8');
+          
+          // Issue本文から日付、タイトル、URLを抽出
+          const dateMatch = issueContent.match(/日付[：:]\s*(\d{1,2})\/(\d{1,2})/);
+          const titleMatch = issueContent.match(/タイトル[：:]\s*(.+)/);
+          const urlMatch = issueContent.match(/URL[：:]\s*(https?:\/\/[^\s]+)/);
+          
+          if (dateMatch && titleMatch && urlMatch) {
+            const day = parseInt(dateMatch[2]);
+            const title = titleMatch[1].trim();
+            const url = urlMatch[1].trim();
+            
+            // articles.js を読み込んで更新
+            const articlesPath = './src/constants/articles.js';
+            let content = fs.readFileSync(articlesPath, 'utf8');
+            
+            // 新しい記事エントリを作成
+            const newEntry = `  ${day}: {\n    title: "${title}",\n    url: "${url}"\n  }`;
+            
+            // ARTICLES オブジェクトの最後に追加
+            const insertPos = content.lastIndexOf('}');
+            const beforeClose = content.substring(0, insertPos).trimEnd();
+            const hasExistingEntries = beforeClose.match(/\d+:\s*{/);
+            
+            if (hasExistingEntries) {
+              // 既存のエントリがある場合はカンマを追加
+              content = beforeClose + ',\n' + newEntry + '\n' + content.substring(insertPos);
+            } else {
+              // 最初のエントリの場合
+              content = beforeClose + '\n' + newEntry + '\n' + content.substring(insertPos);
+            }
+            
+            fs.writeFileSync(articlesPath, content);
+            console.log(`Added article for day ${day}: ${title}`);
+            
+            // 実装内容をサマリーに出力
+            fs.writeFileSync('implementation_summary.txt', 
+              `Day ${day}の記事を追加しました\nタイトル: ${title}\nURL: ${url}`);
+          } else {
+            console.log('Could not parse issue content. Please use format:\n日付: MM/DD\nタイトル: xxx\nURL: https://...');
+            fs.writeFileSync('implementation_summary.txt', 'Issue の形式が正しくありません');
+            process.exit(1);
+          }
+          EOF
+      
+      - name: Commit and push changes
+        id: commit
+        run: |
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "Auto-implement: ${{ github.event.issue.title }} (#${{ github.event.issue.number }})"
+            git push origin ${{ steps.create-branch.outputs.branch_name }}
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Pull Request
+        if: steps.commit.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY=$(cat implementation_summary.txt || echo "自動実装が完了しました")
+          
+          gh pr create \
+            --title "Auto-implement: ${{ github.event.issue.title }}" \
+            --body "Closes #${{ github.event.issue.number }}
+
+          ## 実装内容
+          $SUMMARY
+
+          ---
+          このPRは GitHub Actions により自動生成されました。" \
+            --base main \
+            --head ${{ steps.create-branch.outputs.branch_name }}
+      
+      - name: Comment on Issue
+        if: steps.commit.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = require('fs').readFileSync('implementation_summary.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🤖 自動実装が完了しました！\n\n${summary}\n\nPRを確認してください: #${context.issue.number}`
+            });
