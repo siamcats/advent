@@ -4,21 +4,31 @@
 
 export const ARTICLES = {
   1: {
-    title: "Day 1: アドベントカレンダー開始",
-    url: "https://example.com/day1"
+    title: "Vibeコーディングを実践してみて",
+    url: "https://tech.nri-net.com/entry/vibe_coding_in_action"
   },
   2: {
-    title: "Day 2: サンプル記事",
-    url: "https://example.com/day2"
+    title: "入社2年半でチームリーダーに！～実際の試行錯誤と学び～",
+    url: "https://tech.nri-net.com/entry/actual_trial_error_learning"
   },
-  // 3日目以降は必要に応じて追加
-  // 例:
-  // 3: {
-  //   title: "Day 3: タイトル",
-  //   url: "https://example.com/day3"
-  // },
-  25: {
-    title: "Day 25: クリスマス特別記事",
-    url: "https://example.com/day25"
+  3: {
+    title: "KiroにRailsを使ってWebアプリをつくらせてみた",
+    url: "https://tech.nri-net.com/entry/using_rails_with_kiro"
+  },
+  4: {
+    title: "Kubernetes食わず嫌いしてませんか？",
+    url: "https://tech.nri-net.com/entry/are_you_prejudiced_against_kubernetes"
+  },
+  5: {
+    title: "microCMSのデータ移行",
+    url: "https://tech.nri-net.com/entry/microcms_data_migration"
+  },
+  6: {
+    title: "プロジェクトリーダーとしてコードレビューをどう進めているか",
+    url: "https://tech.nri-net.com/entry/code_review_as_a_leader"
+  },
+  7: {
+    title: "【入社2年目の振り返り】文系エンジニアが実際にぶつかった壁と活かせた強み",
+    url: "https://tech.nri-net.com/entry/looking_back_on_the_second_year"
   }
 };
