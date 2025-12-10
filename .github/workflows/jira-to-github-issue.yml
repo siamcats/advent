@@ -57,12 +57,12 @@ jobs:
             
             console.log(`Created GitHub Issue #${issue.data.number} for Jira ${jiraKey}`);
             
-            // @copilot を自動アサイン
+            // @Copilot を自動アサイン（大文字のC）
             await github.rest.issues.addAssignees({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.data.number,
-              assignees: ['copilot']
+              assignees: ['Copilot']
             });
             
             console.log(`Assigned @copilot to Issue #${issue.data.number}`);

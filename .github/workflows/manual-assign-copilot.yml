@@ -24,29 +24,19 @@ jobs:
             const issueNumber = ${{ github.event.inputs.issue_number }};
             
             try {
-              // まず@copilotユーザーが存在するか確認
-              try {
-                const { data: user } = await github.rest.users.getByUsername({
-                  username: 'copilot'
-                });
-                console.log(`✅ @copilot user found: ${user.login} (ID: ${user.id})`);
-              } catch (userError) {
-                console.log(`⚠️ @copilot user check failed: ${userError.message}`);
-              }
-              
-              // @copilot を担当者として追加
+              // @Copilot を担当者として追加（大文字のC）
               const result = await github.rest.issues.addAssignees({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                assignees: ['copilot']
+                assignees: ['Copilot']
               });
               
               console.log(`✅ API call successful. Response status: ${result.status}`);
               console.log(`Current assignees:`, result.data.assignees.map(a => a.login));
               
-              if (result.data.assignees.find(a => a.login === 'copilot')) {
-                console.log(`✅ Successfully assigned @copilot to Issue #${issueNumber}`);
+              if (result.data.assignees.find(a => a.login.toLowerCase() === 'copilot')) {
+                console.log(`✅ Successfully assigned @Copilot to Issue #${issueNumber}`);
               } else {
                 console.log(`⚠️ API succeeded but @copilot is not in assignees list`);
                 console.log(`This may mean @copilot doesn't have access to this repository`);
