@@ -1,0 +1,84 @@
+name: Create GitHub Issue from Jira
+
+on:
+  repository_dispatch:
+    types: [jira-issue-created]
+
+permissions:
+  issues: write
+
+jobs:
+  create-github-issue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    
+    steps:
+      - name: Create GitHub Issue from Jira
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const payload = context.payload.client_payload;
+            const jiraKey = payload.issue_key;
+            const jiraTitle = payload.issue_title;
+            const jiraDescription = payload.issue_description || '';
+            const jiraUrl = payload.issue_url;
+            const jiraType = payload.issue_type || 'Task';
+            
+            // GitHub Issueを作成
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[${jiraKey}] ${jiraTitle}`,
+              body: `## 📋 Jira課題から自動作成
+
+            **Jira:** [${jiraKey}](${jiraUrl})
+            **Type:** ${jiraType}
+
+            ---
+
+            ${jiraDescription}
+
+            ---
+            _この Issue は Jira 課題 ${jiraKey} から自動作成されました_`,
+              labels: ['auto-implement', 'from-jira']
+            });
+            
+            console.log(`Created GitHub Issue #${issue.data.number} for Jira ${jiraKey}`);
+            
+            // @copilot を自動アサイン
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.data.number,
+              assignees: ['copilot']
+            });
+            
+            console.log(`Assigned @copilot to Issue #${issue.data.number}`);
+            
+            // Jira課題にコメントを投稿（オプション：JIRA_API_TOKENが設定されている場合）
+            if (process.env.JIRA_API_TOKEN && process.env.JIRA_BASE_URL && process.env.JIRA_USER_EMAIL) {
+              const jiraComment = {
+                body: `GitHub Issue が自動作成されました: ${issue.data.html_url}\n\n@copilot による自動実装が開始されます。`
+              };
+              
+              try {
+                const response = await fetch(`${process.env.JIRA_BASE_URL}/rest/api/3/issue/${jiraKey}/comment`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Basic ${Buffer.from(`${process.env.JIRA_USER_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString('base64')}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(jiraComment)
+                });
+                
+                if (response.ok) {
+                  console.log(`Added comment to Jira ${jiraKey}`);
+                }
+              } catch (error) {
+                console.log(`Failed to add comment to Jira: ${error.message}`);
+              }
+            }
+        env:
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}

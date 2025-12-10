@@ -1,0 +1,50 @@
+name: Auto Assign Copilot
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  assign-copilot:
+    # 'auto-implement' ラベルが付いた Issue に自動的に @copilot をアサイン
+    if: contains(github.event.issue.labels.*.name, 'auto-implement')
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    
+    steps:
+      - name: Assign Copilot to Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // @copilot を担当者として追加
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              assignees: ['copilot']
+            });
+      
+      - name: Comment on Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🤖 **GitHub Copilot Code Agent をアサインしました！**
+
+            Copilotが自動的に:
+            1. ✅ Issue内容を分析
+            2. ✅ ブランチを作成
+            3. ✅ コードを実装
+            4. ✅ PRを作成
+
+            数分お待ちください。Copilotが作業を開始します...
+
+            ---
+            💡 JIRAから連携されたIssueの場合、実装完了後にJIRAのステータスも自動更新されます`
+            });
