@@ -51,21 +51,50 @@
 - **Then: Send web request**
 
 **Web request設定:**
-```
-URL: https://api.github.com/repos/siamcats/advent/dispatches
-HTTP method: POST
-Headers:
-  Authorization: Bearer YOUR_GITHUB_PAT_HERE
-  Accept: application/vnd.github.v3+json
-  Content-Type: application/json
 
-Body (Custom data):
+**URL:**
+```
+https://api.github.com/repos/siamcats/advent/dispatches
+```
+
+**HTTP method:** `POST`
+
+**Headers:**
+```
+Authorization: Bearer YOUR_GITHUB_PAT_HERE
+Accept: application/vnd.github.v3+json
+Content-Type: application/json
+```
+
+**Web request body:** `Custom data`
+
+**Body:**
+```json
 {
   "event_type": "jira-issue-created",
   "client_payload": {
     "issue_key": "{{issue.key}}",
     "issue_title": "{{issue.summary}}",
-    "issue_description": "{{issue.description}}",
+    "issue_description": "{{issue.description.replaceAll('"', '\\"').replaceAll('\n', ' ')}}",
+    "issue_url": "{{issue.url}}",
+    "issue_type": "{{issue.issueType.name}}",
+    "project_key": "{{issue.project.key}}"
+  }
+}
+```
+
+**重要な注意点:**
+- `{{issue.description}}`に改行やダブルクォートが含まれる場合、JSONエラーが発生します
+- 上記では`replaceAll`でエスケープしていますが、Jira Automationの実行環境によっては動作しない場合があります
+- **推奨: descriptionを省略する**（以下の簡易版を使用）
+
+**簡易版（推奨）:**
+```json
+{
+  "event_type": "jira-issue-created",
+  "client_payload": {
+    "issue_key": "{{issue.key}}",
+    "issue_title": "{{issue.summary}}",
     "issue_url": "{{issue.url}}",
     "issue_type": "{{issue.issueType.name}}",
     "project_key": "{{issue.project.key}}"

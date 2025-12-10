@@ -20,16 +20,13 @@ jobs:
             const payload = context.payload.client_payload;
             const jiraKey = payload.issue_key;
             const jiraTitle = payload.issue_title;
-            const jiraDescription = payload.issue_description || '';
+            const jiraDescription = payload.issue_description || ''; // descriptionは省略可能
             const jiraUrl = payload.issue_url;
             const jiraType = payload.issue_type || 'Task';
             
             // GitHub Issueを作成
-            const issue = await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `[${jiraKey}] ${jiraTitle}`,
-              body: `## 📋 Jira課題から自動作成
+            const issueBody = jiraDescription 
+              ? `## 📋 Jira課題から自動作成
 
             **Jira:** [${jiraKey}](${jiraUrl})
             **Type:** ${jiraType}
@@ -39,7 +36,22 @@ jobs:
             ${jiraDescription}
 
             ---
-            _この Issue は Jira 課題 ${jiraKey} から自動作成されました_`,
+            _この Issue は Jira 課題 ${jiraKey} から自動作成されました_`
+              : `## 📋 Jira課題から自動作成
+
+            **Jira:** [${jiraKey}](${jiraUrl})
+            **Type:** ${jiraType}
+
+            詳細はJira課題を確認してください。
+
+            ---
+            _この Issue は Jira 課題 ${jiraKey} から自動作成されました_`;
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[${jiraKey}] ${jiraTitle}`,
+              body: issueBody,
               labels: ['auto-implement', 'from-jira']
             });
             
