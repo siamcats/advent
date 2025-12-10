@@ -1,0 +1,76 @@
+name: Manually Assign Copilot to Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue番号'
+        required: true
+        type: number
+
+permissions:
+  issues: write
+
+jobs:
+  assign-copilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    
+    steps:
+      - name: Assign Copilot to Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.inputs.issue_number }};
+            
+            try {
+              // @copilot を担当者として追加
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                assignees: ['copilot']
+              });
+              
+              console.log(`✅ Successfully assigned @copilot to Issue #${issueNumber}`);
+              
+              // コメントを投稿
+              await github.rest.issues.createComment({
+                issue_number: issueNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `🤖 **GitHub Copilot Code Agent を手動アサインしました**
+
+            Copilotが自動的に:
+            1. ✅ Issue内容を分析
+            2. ✅ ブランチを作成
+            3. ✅ コードを実装
+            4. ✅ PRを作成
+
+            数分お待ちください。Copilotが作業を開始します...`
+              });
+              
+              console.log(`✅ Posted comment to Issue #${issueNumber}`);
+              
+            } catch (error) {
+              console.error(`❌ Error: ${error.message}`);
+              
+              // エラーの場合もコメントを投稿
+              await github.rest.issues.createComment({
+                issue_number: issueNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `⚠️ **Copilotのアサインに失敗しました**
+
+            エラー: \`${error.message}\`
+
+            考えられる原因:
+            - リポジトリでGitHub Copilotが有効化されていない
+            - Copilot Code Agentへのアクセス権限がない
+            - Copilot Pro/Business/Enterpriseプランが必要
+
+            手動で \`@copilot\` をアサインしてみてください。`
+              });
+              
+              throw error;
+            }
