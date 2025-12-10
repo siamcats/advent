@@ -30,5 +30,9 @@ export const ARTICLES = {
   7: {
     title: "【入社2年目の振り返り】文系エンジニアが実際にぶつかった壁と活かせた強み",
     url: "https://tech.nri-net.com/entry/looking_back_on_the_second_year"
+  },
+  8: {
+    title: "Vertex AI 入門　Function Calling（関数呼び出し）を使ってみよう",
+    url: "https://tech.nri-net.com/entry/introduction_to_vertex_ai"
   }
 };
